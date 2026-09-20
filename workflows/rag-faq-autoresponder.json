@@ -1,0 +1,54 @@
+{
+  "name": "RAG FAQ Autoresponder",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "faq-question",
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "id": "1",
+      "name": "Webhook - Incoming Question",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8001/ask",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"question\": $json.question } }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{ "name": "X-API-Key", "value": "={{ $env.RAG_STARTER_KIT_API_KEY }}" }]
+        }
+      },
+      "id": "2",
+      "name": "HTTP Request - rag-starter-kit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"answer\": $json.answer } }}"
+      },
+      "id": "3",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [760, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Incoming Question": {
+      "main": [[{ "node": "HTTP Request - rag-starter-kit", "type": "main", "index": 0 }]]
+    },
+    "HTTP Request - rag-starter-kit": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  }
+}
