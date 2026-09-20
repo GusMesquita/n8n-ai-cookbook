@@ -1,6 +1,6 @@
 # n8n-ai-cookbook
 
-Coleção de workflows n8n prontos pra importar, que conectam serviços de IA a automações do dia a dia. É a camada de orquestração deste portfólio — a "cola" entre [lead-router](../lead-router) e [rag-starter-kit](../rag-starter-kit).
+Coleção de workflows n8n prontos pra importar, que conectam serviços de IA a automações do dia a dia. É a camada de orquestração deste portfólio — a "cola" entre `lead-router` e `rag-starter-kit`.
 
 ## Workflows
 
