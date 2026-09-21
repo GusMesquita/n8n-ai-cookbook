@@ -1,14 +1,19 @@
-"""Valida os workflows de workflows/ antes que alguém tente importá-los no n8n.
+"""Valida os workflows de workflows/*/ antes que alguém tente importá-los no n8n.
 
 Roda sem dependências: `python3 scripts/validate.py`.
 Sai com status 1 se qualquer arquivo estiver quebrado.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
 WORKFLOWS = Path(__file__).resolve().parent.parent / "workflows"
+
+# URL fixa dentro do JSON é o bug que faz o workflow "funcionar na sua máquina":
+# quem importa recebe um endpoint que não existe do lado dele. Vai por $env.
+HARDCODED_URL = re.compile(r"https?://(?!\{)[^\"\s]+")
 
 
 def check(path: Path) -> list[str]:
@@ -50,11 +55,18 @@ def check(path: Path) -> list[str]:
                 if target not in names:
                     errors.append(f"{source!r} conecta em node inexistente: {target!r}")
 
+    # Convenção: nada de endpoint fixo — só $env.
+    for match in HARDCODED_URL.findall(json.dumps(wf, ensure_ascii=False)):
+        errors.append(f"URL fixa no workflow: {match} — use uma variável de ambiente ($env)")
+
+    if not (path.parent / "README.md").exists():
+        errors.append("sem README.md ao lado do workflow.json")
+
     return errors
 
 
 def main() -> int:
-    files = sorted(WORKFLOWS.glob("*.json"))
+    files = sorted(WORKFLOWS.glob("*/workflow.json"))
     if not files:
         print(f"nenhum workflow em {WORKFLOWS}", file=sys.stderr)
         return 1
@@ -64,11 +76,11 @@ def main() -> int:
         errors = check(path)
         if errors:
             failed = True
-            print(f"FALHOU {path.name}")
+            print(f"FALHOU {path.parent.name}")
             for err in errors:
                 print(f"  - {err}")
         else:
-            print(f"ok     {path.name}")
+            print(f"ok     {path.parent.name}")
     return 1 if failed else 0
 
 

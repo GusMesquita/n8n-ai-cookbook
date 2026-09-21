@@ -1,45 +1,60 @@
 # n8n-ai-cookbook
 
-Coleção de workflows n8n prontos pra importar, que conectam serviços de IA a automações do dia a dia. É a camada de orquestração deste portfólio — a "cola" entre `lead-router` e `rag-starter-kit`.
+Workflows n8n prontos pra importar, que conectam serviços de IA a automações do dia a dia.
+É a camada de orquestração deste portfólio — a "cola" entre `lead-router` e `rag-starter-kit`.
 
-## Workflows
+Cada workflow tem diretório próprio, com o JSON, um README e a captura do canvas.
 
-### `lead-enrichment-and-scoring.json`
-Webhook recebe um lead → chama o `lead-router` (enriquecimento + score via Claude) → se qualificado, notifica o time de vendas no Slack; senão, só loga.
+| Workflow | O que faz |
+| --- | --- |
+| [`lead-enrichment-and-scoring`](workflows/lead-enrichment-and-scoring/) | Webhook → `lead-router` (enriquece por CNPJ + pontua com o Claude) → Slack, ramificando por score |
+| [`rag-faq-autoresponder`](workflows/rag-faq-autoresponder/) | Webhook → `rag-starter-kit` → responde a pergunta na mesma requisição, com as fontes |
 
+## Subindo o n8n
+
+```bash
+cp .env.example .env
+# N8N_ENCRYPTION_KEY=$(openssl rand -hex 32) — fixa, senão as credenciais salvas viram lixo
+docker compose up -d
 ```
-Webhook → HTTP Request (lead-router) → IF (score >= 60) → Slack
+
+`http://127.0.0.1:5678` → crie a conta de owner → **Import from File** → escolha o
+`workflow.json` do workflow desejado.
+
+O `compose.yaml` já sobe o n8n com `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`. Sem isso as
+expressões `{{ $env.X }}` destes workflows falham com *access to env vars denied* — é o
+padrão do n8n bloquear.
+
+## Configuração
+
+Nenhuma URL e nenhuma chave vivem dentro do JSON: tudo vem de variáveis de ambiente do n8n,
+definidas no `.env`.
+
+| Variável | Usada por |
+| --- | --- |
+| `LEAD_ROUTER_URL` / `LEAD_ROUTER_API_KEY` | `lead-enrichment-and-scoring` |
+| `RAG_STARTER_KIT_URL` / `RAG_STARTER_KIT_API_KEY` | `rag-faq-autoresponder` |
+
+As chaves precisam bater com `API_KEYS` do backend correspondente. Backend em modo dev
+(sem `API_KEYS`) ignora o header, e nada além disso precisa ser configurado.
+
+Portas, sem colisão: n8n **5678** · `lead-router` **8000** · `brasilapi-mcp-server` **8001** ·
+`rag-starter-kit` **8002**. Do container do n8n, o host é `host.docker.internal`.
+
+## Validação
+
+```bash
+python3 scripts/validate.py
 ```
 
-### `rag-faq-autoresponder.json`
-Webhook recebe uma pergunta → chama o `rag-starter-kit` → devolve a resposta baseada nos documentos ingeridos.
-
-```
-Webhook → HTTP Request (rag-starter-kit) → Respond to Webhook
-```
-
-## Como usar
-
-1. Suba o serviço correspondente (`lead-router` e/ou `rag-starter-kit`) localmente ou em algum host.
-2. No n8n, **Import from File** e selecione o `.json` do workflow desejado.
-3. Ajuste as URLs dos nós HTTP Request para onde seus serviços estão rodando.
-4. Configure as variáveis de ambiente do n8n com as mesmas chaves definidas em `API_KEYS` nos backends (veja "Autenticação" abaixo).
-5. Ative o workflow — o n8n expõe uma URL de webhook pra você plugar em qualquer formulário, CRM ou integração externa.
-
-## Autenticação
-
-Desde que `lead-router` e `rag-starter-kit` passaram a suportar autenticação por `X-API-Key` (ver `AGENT_BEHAVIOR.md`/`README.md` de cada repo), os nós HTTP Request destes workflows já enviam o header lendo variáveis de ambiente do próprio n8n:
-
-| Workflow | Nó | Variável de ambiente esperada |
-| --- | --- | --- |
-| `lead-enrichment-and-scoring.json` | HTTP Request - lead-router | `LEAD_ROUTER_API_KEY` |
-| `rag-faq-autoresponder.json` | HTTP Request - rag-starter-kit | `RAG_STARTER_KIT_API_KEY` |
-
-Se o backend correspondente estiver rodando sem `API_KEYS` configurado (modo dev, auth desligada), o header é enviado mas simplesmente ignorado pelo backend — nenhuma configuração adicional é necessária nesse caso.
+Stdlib pura, roda no CI. Pega JSON quebrado, nó sem `typeVersion`, conexão apontando pra nó
+inexistente, credencial embutida no arquivo, URL fixa e workflow sem README.
 
 ## Por que JSON exportado, e não só descrição
 
-Workflows do n8n são reproduzíveis 1:1 a partir do JSON — qualquer pessoa importa e já tem o fluxo funcionando, sem recriar nó por nó manualmente. É o formato que o próprio n8n usa para templates.
+Workflows do n8n são reproduzíveis 1:1 a partir do JSON — qualquer pessoa importa e já tem o
+fluxo funcionando, sem recriar nó por nó. É o formato que o próprio n8n usa para templates.
+As convenções que cada arquivo segue estão em [`docs/conventions.md`](docs/conventions.md).
 
 ## Roadmap
 
